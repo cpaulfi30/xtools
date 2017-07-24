@@ -63,6 +63,21 @@ class User extends Model
     }
 
     /**
+     * Get the user's registration date on the given project.
+     * @param Project $project
+     * @return DateTime
+     */
+    public function getRegistrationDate(Project $project)
+    {
+        $registrationDate = $this->getRepository()->getRegistrationDate(
+            $project->getDatabaseName(),
+            $this->getUsername()
+        );
+
+        return DateTime::createFromFormat('YmdHis', $registrationDate);
+    }
+
+    /**
      * Get a list of this user's groups on the given project.
      * @param Project $project The project.
      * @return string[]

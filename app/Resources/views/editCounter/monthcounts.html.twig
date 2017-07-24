@@ -29,55 +29,64 @@
     </div>
 {% else %}
 
-<canvas id="monthcounts-bar-chart"></canvas>
 <script type="text/javascript">
-    new Chart($("#monthcounts-bar-chart"), {
-        type: 'bar',
-        data: {
-            labels: [
-                {%- for year in ec.monthCounts.min_year .. ec.monthCounts.max_year -%}
-                    {%- for month in 1..12 -%}
-                        "{{ year }}/{{ '%02d'|format(month) }}"
+    {% set numMonths = 0 %}
+    $(function() {
+        var datasets = [];
+        {% for ns_id,dataset in ec.monthCounts.totals %}
+            var dataset = {
+                label: "{{ nsName(ns_id, project.namespaces) }}",
+                backgroundColor: "{{ color(ns_id) }}",
+                data: [],
+            };
+
+            {% set numMonths = 0 %}
+            {% for year in ec.monthCounts.min_year .. "now"|date("Y") %}
+                {% set startMonth = year == ec.monthCounts.min_year ? ec.monthCounts.min_month : 1 %}
+                {% set endMonth = year == "now"|date("Y") ? "now"|date("m") : 12 %}
+                {%- for month in startMonth..endMonth -%}
+                    dataset.data.push({{- attribute(dataset, year~month) -}});
+                    {% set numMonths = numMonths + 1 %}
+                {%- endfor -%}
+            {%- endfor -%}
+
+            datasets.push(dataset);
+        {% endfor %}
+
+        window.chart = new Chart($("#monthcounts-bar-chart"), {
+            type: 'horizontalBar',
+            data: {
+                labels: [
+                    {%- for year in ec.monthCounts.min_year .. ec.monthCounts.max_year -%}
+                        {% set startMonth = year == ec.monthCounts.min_year ? ec.monthCounts.min_month : 1 %}
+                        {% set endMonth = year == "now"|date("Y") ? "now"|date("m") : 12 %}
+                        {%- for month in startMonth..endMonth -%}
+                            "{{ year }}/{{ '%02d'|format(month) }}"
+                            {%- if not loop.last %},{% endif %}
+                        {%- endfor -%}
                         {%- if not loop.last %},{% endif %}
                     {%- endfor -%}
-                    {%- if not loop.last %},{% endif %}
-                {%- endfor -%}
-            ],
-            datasets: [
-                {% for ns_id,dataset in ec.monthCounts.totals %}
-                {
-                    label: "{{ nsName(ns_id, project.namespaces) }}",
-                    backgroundColor: "{{ color(ns_id) }}",
-                    data: [
-                        {% for year in ec.monthCounts.min_year .. ec.monthCounts.max_year %}
-                            {%- for month in 1..12 -%}
-                                {{- attribute(dataset, year~month) -}}
-                                {%- if not loop.last %},{% endif %}
-                            {%- endfor -%}
-                            {%- if not loop.last %},{% endif -%}
-                        {%- endfor -%}
-                    ]
-                }{% if not loop.last %},{% endif %}
-                {% endfor %}
-            ]
-        },
-        options: {
-            scales: {
-                yAxes: [{
-                    stacked: true
-                }],
-                xAxes: [{
-                    stacked: true,
-                    ticks: {
-                        callback: function(value, index, values) {
-                            return (index % 12 == 0) ? value : '';
-                        }
-                    }
-                }]
+                ],
+                datasets: datasets
+            },
+            options: {
+                tooltips: {
+                    intersect: true
+                },
+                scales: {
+                    yAxes: [{
+                        stacked: true
+                    }],
+                    xAxes: [{
+                        stacked: true
+                    }]
+                }
             }
-        }
+        });
     });
 </script>
+{# 6 * number of months seems to be the magic equation for the height (minimum 50) #}
+<canvas id="monthcounts-bar-chart" height="{{ max(6 * numMonths, 50) }}"></canvas>
 
 {% endif %}
 

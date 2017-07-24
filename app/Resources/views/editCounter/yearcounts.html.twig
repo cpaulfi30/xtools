@@ -23,7 +23,8 @@
                 <div class="panel-body col-lg-12">
 {% endif %}
 
-<canvas id="yearcounts-canvas"></canvas>
+{# 6 * year count seems to be the magic equation for the height (minimum 50) #}
+<canvas id="yearcounts-canvas" height="{{ max(6 * ec.yearcounts.years|length, 50) }}"></canvas>
 <script type="text/javascript">
     new Chart($("#yearcounts-canvas"), {
         type: 'horizontalBar',

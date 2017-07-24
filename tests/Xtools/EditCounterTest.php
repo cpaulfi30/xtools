@@ -8,7 +8,10 @@ namespace Tests\Xtools;
 use Xtools\EditCounter;
 use Xtools\EditCounterRepository;
 use Xtools\Project;
+use Xtools\ProjectRepository;
 use Xtools\User;
+use Xtools\UserRepository;
+use DateTime;
 
 /**
  * Tests for the EditCounter.
@@ -141,6 +144,94 @@ class EditCounterTest extends \PHPUnit_Framework_TestCase
         $editCounter->setRepository($editCounterRepo);
 
         $this->assertEquals($namespaceTotals, $editCounter->namespaceTotals());
+    }
+
+    /**
+     * Test that month counts are properly put together.
+     */
+    public function testMonthCounts()
+    {
+        $editCounterRepo = $this->getMock(EditCounterRepository::class);
+        $editCounterRepo->expects($this->once())
+            ->method('getMonthCounts')
+            ->willReturn([
+                [
+                    'year' => '2016',
+                    'month' => '12',
+                    'page_namespace' => '0',
+                    'count' => '10',
+                ],
+                [
+                    'year' => '2017',
+                    'month' => '3',
+                    'page_namespace' => '0',
+                    'count' => '20',
+                ],
+                [
+                    'year' => '2017',
+                    'month' => '2',
+                    'page_namespace' => '1',
+                    'count' => '50',
+                ],
+            ]);
+        $userRepo = $this->getMock(UserRepository::class);
+        $userRepo->expects($this->once())
+            ->method('getRegistrationDate')
+            ->willReturn('20161105000000');
+        $projectRepo = $this->getMock(ProjectRepository::class);
+
+        $project = new Project('TestProject');
+        $project->setRepository($projectRepo);
+        $user = new User('Testuser1');
+        $user->setRepository($userRepo);
+        $editCounter = new EditCounter($project, $user);
+        $editCounter->setRepository($editCounterRepo);
+
+        // Mock current time by passing it in (dummy parameter, so to speak).
+        $monthCounts = $editCounter->monthCounts(new DateTime('2017-04-30 23:59:59'));
+
+        // Make sure zeros were filled in for months with no edits,
+        //   and for each namespace.
+        $this->assertArraySubset(
+            [
+                201611 => 0,
+                201612 => 10,
+                20171 => 0,
+                20172 => 0,
+                20173 => 20,
+                20174 => 0,
+            ],
+            $monthCounts['totals'][0]
+        );
+        $this->assertArraySubset(
+            [
+                201611 => 0,
+                201612 => 0,
+                20171 => 0,
+                20172 => 50,
+                20173 => 0,
+                20174 => 0,
+            ],
+            $monthCounts['totals'][1]
+        );
+
+        // Assert that only active namespaces are reported.
+        $this->assertEquals([0, 1], array_keys($monthCounts['totals']));
+
+        // Sort keys so we can more easily test.
+        ksort($monthCounts['totals'][0]);
+
+        // Assert that only active months, leading up to the current, are reported.
+        // Note that treated as integers, the ksort above puts 2016's data after 2017's.
+        $this->assertEquals(
+            [20171, 20172, 20173, 20174, 201611, 201612],
+            array_keys($monthCounts['totals'][0])
+        );
+
+        $this->assertEquals('2016', $monthCounts['min_year']);
+        $this->assertEquals('2017', $monthCounts['max_year']);
+        $this->assertEquals('11', $monthCounts['min_month']);
+        $this->assertEquals('4', $monthCounts['max_month']);
     }
 
     /**
